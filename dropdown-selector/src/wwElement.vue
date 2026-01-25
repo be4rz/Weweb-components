@@ -19,7 +19,7 @@
       <span v-if="isLoadingState" class="loading-spinner"></span>
       <span 
         class="trigger-label" 
-        :class="{ 'has-label-click': hasLabelClickEvent }"
+        :class="{ 'has-label-click': content.enableLabelClick }"
         @click.stop="handleLabelClick"
       >{{ displayLabel }}</span>
       <svg 
@@ -162,21 +162,7 @@ export default {
       }
     });
 
-    // Check if label-click event has handlers
-    const hasLabelClickEvent = computed(() => {
-      /* wwEditor:start */
-      if (props.wwEditorState?.isEditing) {
-        // In editor, check if there are any workflows attached to label-click
-        const element = wwLib.wwElements.get(props.uid);
-        const triggers = element?.content?.triggers || {};
-        return triggers['label-click'] && triggers['label-click'].length > 0;
-      }
-      /* wwEditor:end */
-      // In runtime, always check for the event
-      return true; // We'll handle the actual check in handleLabelClick
-    });
 
-    // Computed properties
     const options = computed(() => {
       return props.content?.dropdownOptions || [];
     });
@@ -296,12 +282,8 @@ export default {
     const handleLabelClick = (event) => {
       if (isEditing.value) return;
       
-      // Check if there are any handlers for label-click event
-      const element = wwLib.wwElements?.get(props.uid);
-      const triggers = element?.content?.triggers || {};
-      const hasHandlers = triggers['label-click'] && triggers['label-click'].length > 0;
-      
-      if (hasHandlers) {
+      // Only trigger label-click event if enableLabelClick is true
+      if (props.content?.enableLabelClick) {
         // Prevent the dropdown from toggling
         event.stopPropagation();
         
@@ -311,7 +293,7 @@ export default {
           event: {}
         });
       }
-      // If no handlers, let the click propagate to toggle the dropdown
+      // If enableLabelClick is false, let the click propagate to toggle the dropdown
     };
 
     const toggleDropdown = () => {
@@ -494,7 +476,6 @@ export default {
       searchQuery,
       searchPlaceholder,
       noOptionsText,
-      hasLabelClickEvent,
       getOptionValue,
       getOptionLabel,
       isOptionSelected,

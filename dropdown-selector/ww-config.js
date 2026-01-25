@@ -266,6 +266,22 @@ export default {
         tooltip: 'The text shown when there are no options to display or when search returns no results.'
       }
       /* wwEditor:end */
+    },
+    enableLabelClick: {
+      label: { en: 'Enable Label Click' },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'Enable label click to trigger custom action instead of toggling dropdown'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled, clicking the label will trigger the "On label click" event instead of toggling the dropdown. The label will show an underline on hover.'
+      }
+      /* wwEditor:end */
     }
   },
   triggerEvents: [
