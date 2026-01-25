@@ -17,7 +17,11 @@
       @click="toggleDropdown"
     >
       <span v-if="isLoadingState" class="loading-spinner"></span>
-      <span class="trigger-label">{{ displayLabel }}</span>
+      <span 
+        class="trigger-label" 
+        :class="{ 'has-label-click': hasLabelClickEvent }"
+        @click.stop="handleLabelClick"
+      >{{ displayLabel }}</span>
       <svg 
         class="chevron-icon"
         :class="{ 'is-open': isOpen }"
@@ -53,10 +57,15 @@
           class="search-input"
           v-model="searchQuery"
           :placeholder="searchPlaceholder"
+          @input="onSearchInput"
           @click.stop
         />
       </div>
-      <div class="dropdown-items-container">
+      <div 
+        ref="optionsList"
+        class="dropdown-items-container"
+        @scroll="handleScroll"
+      >
         <button
           v-for="(option, index) in filteredOptions"
           :key="index"
@@ -74,6 +83,10 @@
         </button>
         <div v-if="filteredOptions.length === 0" class="no-options">
           {{ noOptionsText }}
+        </div>
+        <div v-if="content.isLoadingMore" class="loading-more-container">
+          <div class="loading-spinner small"></div>
+          <p class="loading-text">Loading more...</p>
         </div>
       </div>
     </div>
@@ -110,10 +123,12 @@ export default {
     const isOpen = ref(false);
     const triggerButton = ref(null);
     const searchInput = ref(null);
+    const optionsList = ref(null);
     const alignRight = ref(false);
     const openUpward = ref(false);
     const internalLoading = ref(false);
     const searchQuery = ref('');
+    let searchDebounceTimer = null;
 
     // Internal value management
     const { value: internalValue, setValue: setInternalValue } = wwLib.wwVariable.useComponentVariable({
@@ -145,6 +160,20 @@ export default {
           }
         });
       }
+    });
+
+    // Check if label-click event has handlers
+    const hasLabelClickEvent = computed(() => {
+      /* wwEditor:start */
+      if (props.wwEditorState?.isEditing) {
+        // In editor, check if there are any workflows attached to label-click
+        const element = wwLib.wwElements.get(props.uid);
+        const triggers = element?.content?.triggers || {};
+        return triggers['label-click'] && triggers['label-click'].length > 0;
+      }
+      /* wwEditor:end */
+      // In runtime, always check for the event
+      return true; // We'll handle the actual check in handleLabelClick
     });
 
     // Computed properties
@@ -264,6 +293,27 @@ export default {
       }
     };
 
+    const handleLabelClick = (event) => {
+      if (isEditing.value) return;
+      
+      // Check if there are any handlers for label-click event
+      const element = wwLib.wwElements?.get(props.uid);
+      const triggers = element?.content?.triggers || {};
+      const hasHandlers = triggers['label-click'] && triggers['label-click'].length > 0;
+      
+      if (hasHandlers) {
+        // Prevent the dropdown from toggling
+        event.stopPropagation();
+        
+        // Emit the label-click event
+        emit('trigger-event', {
+          name: 'label-click',
+          event: {}
+        });
+      }
+      // If no handlers, let the click propagate to toggle the dropdown
+    };
+
     const toggleDropdown = () => {
       if (isEditing.value || props.content?.disabled || isLoadingState.value) return;
 
@@ -271,6 +321,47 @@ export default {
         closeDropdown();
       } else {
         openDropdown();
+      }
+    };
+
+    const onSearchInput = () => {
+      // Clear existing debounce timer
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
+      
+      // Get debounce delay from content or use default
+      const debounceDelay = props.content?.debounceSearch ?? 500;
+      
+      // Set new debounce timer to emit search-change event
+      searchDebounceTimer = setTimeout(() => {
+        emit('trigger-event', {
+          name: 'search-change',
+          event: {
+            query: searchQuery.value
+          }
+        });
+      }, debounceDelay);
+      
+      // Local filtering happens immediately via the reactive filteredOptions computed property
+    };
+
+    const handleScroll = () => {
+      if (!optionsList.value || props.content?.isLoadingMore) return;
+      
+      const { scrollTop, scrollHeight, clientHeight } = optionsList.value;
+      const scrollPercentage = (scrollTop + clientHeight) / scrollHeight;
+      
+      // Trigger when user scrolls to 80% of the list
+      if (scrollPercentage >= 0.8) {
+        emit('trigger-event', {
+          name: 'reach-last-item',
+          event: {
+            scrollTop,
+            scrollHeight,
+            clientHeight
+          }
+        });
       }
     };
 
@@ -376,6 +467,11 @@ export default {
       const doc = wwLib.getFrontDocument();
       doc.removeEventListener('mousedown', handleClickOutside);
       doc.removeEventListener('keydown', handleKeyDown);
+      
+      // Clear debounce timer on unmount
+      if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+      }
     });
 
     return {
@@ -383,6 +479,7 @@ export default {
       isOpen,
       triggerButton,
       searchInput,
+      optionsList,
       alignRight,
       openUpward,
       internalValue,
@@ -397,14 +494,18 @@ export default {
       searchQuery,
       searchPlaceholder,
       noOptionsText,
+      hasLabelClickEvent,
       getOptionValue,
       getOptionLabel,
       isOptionSelected,
       handleOptionClick,
+      handleLabelClick,
       toggleDropdown,
       openDropdown,
       closeDropdown,
-      clearSelection
+      clearSelection,
+      onSearchInput,
+      handleScroll
     };
   }
 };
@@ -651,6 +752,16 @@ export default {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      
+      &.has-label-click {
+        cursor: pointer;
+        text-decoration: none;
+        transition: text-decoration 0.2s ease;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
     }
 
     .chevron-icon {
@@ -767,6 +878,37 @@ export default {
     text-align: center;
     color: #6B7280;
     font-size: 14px;
+  }
+
+  .loading-more-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    gap: 8px;
+    border-top: 1px solid #E5E7EB;
+    
+    .loading-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid #E5E7EB;
+      border-top-color: #3B82F6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      
+      &.small {
+        width: 16px;
+        height: 16px;
+        border-width: 2px;
+      }
+    }
+    
+    .loading-text {
+      margin: 0;
+      font-size: 12px;
+      color: #6B7280;
+    }
   }
 
   .dropdown-overlay {

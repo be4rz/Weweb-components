@@ -218,6 +218,39 @@ export default {
       }
       /* wwEditor:end */
     },
+    debounceSearch: {
+      label: { en: 'Search debounce (ms)' },
+      type: 'Number',
+      bindable: true,
+      section: 'settings',
+      defaultValue: 500,
+      hidden: content => !content.enableSearch,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'number',
+        tooltip: 'Debounce delay in milliseconds for search input'
+      },
+      propertyHelp: {
+        tooltip: 'The delay in milliseconds before triggering the search-change event. Useful to reduce API calls when searching.'
+      }
+      /* wwEditor:end */
+    },
+    isLoadingMore: {
+      label: { en: 'Is loading more' },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'Show loading more indicator at the bottom of the list'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled, displays a "loading more" indicator at the bottom of the options list. Use this for infinite scroll pagination.'
+      }
+      /* wwEditor:end */
+    },
     noOptionsText: {
       label: { en: 'No Options Text' },
       type: 'Text',
@@ -260,6 +293,27 @@ export default {
     {
       name: 'close',
       label: { en: 'On dropdown close' },
+      event: {}
+    },
+    {
+      name: 'search-change',
+      label: { en: 'On search change' },
+      event: {
+        query: ''
+      }
+    },
+    {
+      name: 'reach-last-item',
+      label: { en: 'On reach last item' },
+      event: {
+        scrollTop: 0,
+        scrollHeight: 0,
+        clientHeight: 0
+      }
+    },
+    {
+      name: 'label-click',
+      label: { en: 'On label click' },
       event: {}
     }
   ],
