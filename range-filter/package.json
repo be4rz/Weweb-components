@@ -1,0 +1,12 @@
+{
+  "name": "range-filter",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "weweb build",
+    "serve": "weweb serve"
+  },
+  "dependencies": {
+    "lodash": "^4.17.21"
+  },
+  "devDependencies": {}
+}

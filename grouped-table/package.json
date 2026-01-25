@@ -1,0 +1,9 @@
+{
+  "name": "group-by",
+  "version": "1.0.1",
+  "scripts": {
+    "build": "weweb build",
+    "serve": "weweb serve"
+  },
+  "devDependencies": {}
+}
