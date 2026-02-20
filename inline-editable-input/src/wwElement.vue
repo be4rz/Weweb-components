@@ -7,6 +7,7 @@
       'is-focused': isFocused,
       'is-hovered': isHovered && !isFocused && !content.isDisabled,
       'has-error': hasValidationError,
+      'has-ellipsis': content.noWrap && content.ellipsis,
       [`size-${content.size}`]: content.size
     }"
     @mouseenter="handleMouseEnter"
@@ -15,30 +16,60 @@
     <!-- Text display when not editing -->
     <div 
       v-if="!isEditing" 
-      class="display-text"
-      :style="displayTextStyle"
-      @click="startEditing"
+      class="display-text-wrapper"
     >
-      {{ displayValue }}
-      <div v-if="content.isLoading" class="loading-indicator">
-        <div class="spinner"></div>
+      <div 
+        class="display-text"
+        :style="displayTextStyle"
+        @click="content.useDatePicker ? openNativeDatePicker() : startEditing()"
+      >
+        <span :style="displayTextContentStyle">{{ displayValue }}</span>
+        <div v-if="content.isLoading" class="loading-indicator">
+          <div class="spinner"></div>
+        </div>
       </div>
+      
+      <!-- Hidden native date input -->
+      <input
+        v-if="content.useDatePicker"
+        ref="nativeDateInput"
+        type="date"
+        class="native-date-input"
+        :value="nativeDateValue"
+        :min="content.minDate"
+        :max="content.maxDate"
+        @change="handleNativeDateChange"
+      />
     </div>
     
     <!-- Input when editing -->
     <div v-else class="edit-container">
-      <input
-        ref="inputElement"
-        v-model="inputValue"
-        class="edit-input"
-        :class="{ 'has-error': hasValidationError }"
-        :style="inputStyle"
-        :disabled="content.isDisabled || isProcessing"
-        @blur="handleBlur"
-        @keydown.enter="handleEnter"
-        @keydown.esc="cancelEditing"
-        @input="handleInput"
-      />
+      <div class="input-wrapper">
+        <input
+          ref="inputElement"
+          v-model="inputValue"
+          class="edit-input"
+          :class="{ 'has-error': hasValidationError, 'has-date-picker': content.useDatePicker }"
+          :style="inputStyle"
+          :disabled="content.isDisabled || isProcessing"
+          @blur="handleBlur"
+          @keydown.enter="handleEnter"
+          @keydown.esc="cancelEditing"
+          @input="handleInput"
+        />
+        
+        <!-- Hidden native date input for edit mode -->
+        <input
+          v-if="content.useDatePicker"
+          ref="nativeDateInputEdit"
+          type="date"
+          class="native-date-input"
+          :value="nativeDateValue"
+          :min="content.minDate"
+          :max="content.maxDate"
+          @change="handleNativeDateChange"
+        />
+      </div>
       <div v-if="hasValidationError" class="error-message">
         {{ validationErrorMessage }}
       </div>
@@ -76,6 +107,10 @@ export default {
     const inputElement = ref(null);
     const validationError = ref(false);
     
+    // Native date picker refs
+    const nativeDateInput = ref(null);
+    const nativeDateInputEdit = ref(null);
+    
     // Internal value management
     const { value: internalValue, setValue: setInternalValue } = wwLib.wwVariable.useComponentVariable({
       uid: props.uid,
@@ -98,11 +133,144 @@ export default {
     
     // Display value (what's shown when not editing)
     const displayValue = computed(() => {
-      return internalValue.value || props.content.placeholder || '';
+      const value = internalValue.value;
+      if (!value) return props.content.placeholder || '';
+      
+      // If using date picker and we have a date, format it for display
+      if (props.content.useDatePicker && value) {
+        return formatDateForDisplay(value);
+      }
+      
+      return value;
     });
+    
+    // Convert internal value to native date input format (yyyy-MM-dd)
+    const nativeDateValue = computed(() => {
+      const value = internalValue.value;
+      if (!value) return '';
+      
+      // Try to parse and convert to yyyy-MM-dd
+      const date = parseDate(value);
+      if (date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      }
+      return value;
+    });
+    
+    // Format date for display based on dateFormat prop
+    const formatDateForDisplay = (value) => {
+      const date = parseDate(value);
+      if (!date) return value;
+      
+      const format = props.content.dateFormat || 'yyyy-MM-dd';
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      
+      return format
+        .replace('yyyy', year)
+        .replace('MM', month)
+        .replace('dd', day);
+    };
+    
+    // Parse various date formats
+    const parseDate = (str) => {
+      if (!str) return null;
+      
+      const formats = [
+        /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // yyyy-MM-dd
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // MM/dd/yyyy
+        /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/, // yyyy/MM/dd
+        /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // dd-MM-yyyy
+      ];
+      
+      for (const regex of formats) {
+        const match = str.match(regex);
+        if (match) {
+          let year, month, day;
+          if (regex === formats[1]) {
+            month = parseInt(match[1], 10) - 1;
+            day = parseInt(match[2], 10);
+            year = parseInt(match[3], 10);
+          } else if (regex === formats[3]) {
+            day = parseInt(match[1], 10);
+            month = parseInt(match[2], 10) - 1;
+            year = parseInt(match[3], 10);
+          } else {
+            year = parseInt(match[1], 10);
+            month = parseInt(match[2], 10) - 1;
+            day = parseInt(match[3], 10);
+          }
+          const date = new Date(year, month, day);
+          if (!isNaN(date.getTime())) return date;
+        }
+      }
+      
+      return null;
+    };
+    
+    // Open native date picker
+    const openNativeDatePicker = () => {
+      const input = isEditing.value ? nativeDateInputEdit.value : nativeDateInput.value;
+      if (input) {
+        input.showPicker();
+      }
+    };
+    
+    // Handle native date picker change
+    const handleNativeDateChange = (event) => {
+      const dateValue = event.target.value; // yyyy-MM-dd format
+      
+      // Format the date according to user's preference
+      const formattedDate = dateValue ? formatDateForDisplay(dateValue) : '';
+      
+      // Validate the new value
+      const isValid = validateInput(formattedDate);
+      
+      if (!isValid && props.content.showValidateError) {
+        validationError.value = true;
+      } else {
+        validationError.value = false;
+      }
+      
+      setInternalValue(formattedDate);
+      inputValue.value = formattedDate;
+      
+      emit('trigger-event', {
+        name: 'change',
+        event: { value: formattedDate }
+      });
+      
+      emit('trigger-event', {
+        name: 'dateSelected',
+        event: { value: formattedDate, rawValue: dateValue }
+      });
+      
+      // Trigger blur event as requested
+      emit('trigger-event', {
+        name: 'blur',
+        event: { value: formattedDate }
+      });
+      
+      // Exit edit mode if was editing
+      if (isEditing.value) {
+        isEditing.value = false;
+        isFocused.value = false;
+      }
+    };
     
     // Validation logic
     const validateInput = (value) => {
+      // If value is empty
+      if (!value || value.trim() === '') {
+        // Only validate if field is required
+        return !props.content.required;
+      }
+      
+      // If no pattern is set, consider it valid
       if (!props.content.validatePattern) {
         return true;
       }
@@ -175,6 +343,19 @@ export default {
       return styles;
     });
     
+    const displayTextContentStyle = computed(() => {
+      const styles = {};
+      if (props.content.noWrap) {
+        styles.whiteSpace = 'nowrap';
+      }
+      if (props.content.noWrap && props.content.ellipsis) {
+        styles.overflow = 'hidden';
+        styles.textOverflow = 'ellipsis';
+        styles.display = 'block';
+      }
+      return styles;
+    });
+    
     const inputStyle = computed(() => {
       const styles = {};
       
@@ -223,7 +404,10 @@ export default {
       const debounceTime = props.content.debounceTime ?? 300;
       
       debouncedValueChange = debounce((newValue) => {
-        if (internalValue.value !== newValue) {
+        // Only trigger change event if the input is valid
+        const isValid = validateInput(newValue);
+        
+        if (isValid && internalValue.value !== newValue) {
           setInternalValue(newValue);
           emit('trigger-event', {
             name: 'change',
@@ -279,13 +463,19 @@ export default {
     };
     
     const handleBlur = () => {
+      // Validate before triggering blur event
+      const isValid = validateInput(inputValue.value);
+      
       finishEditing();
       isFocused.value = false;
       
-      emit('trigger-event', {
-        name: 'blur',
-        event: { value: internalValue.value }
-      });
+      // Only emit blur event if the input is valid
+      if (isValid) {
+        emit('trigger-event', {
+          name: 'blur',
+          event: { value: internalValue.value }
+        });
+      }
     };
     
     const handleEnter = () => {
@@ -339,6 +529,7 @@ export default {
       internalValue,
       displayValue,
       displayTextStyle,
+      displayTextContentStyle,
       inputStyle,
       hasValidationError,
       validationErrorMessage,
@@ -349,7 +540,13 @@ export default {
       cancelEditing,
       handleMouseEnter,
       handleMouseLeave,
-      setProcessing
+      setProcessing,
+      // Date picker
+      nativeDateInput,
+      nativeDateInputEdit,
+      nativeDateValue,
+      openNativeDatePicker,
+      handleNativeDateChange
     };
   }
 };
@@ -360,6 +557,22 @@ export default {
   position: relative;
   display: inline-block;
   min-width: 50px;
+  
+  &.has-ellipsis {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    
+    .display-text-wrapper {
+      min-width: 0;
+      overflow: hidden;
+    }
+    
+    .display-text {
+      min-width: 0;
+      overflow: hidden;
+    }
+  }
   
   &.is-disabled {
     opacity: 0.6;
@@ -410,11 +623,72 @@ export default {
     }
   }
   
+  .display-text-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+  
   .display-text {
     position: relative;
     cursor: pointer;
     padding: 2px 0;
     min-height: 1em;
+  }
+  
+  .date-picker-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    border-radius: 4px;
+    color: #333;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    
+    &:hover {
+      background: rgba(0, 0, 0, 0.05);
+      color: #000;
+    }
+    
+    &:active {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    
+    &.editing {
+      position: absolute;
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      
+      &:hover {
+        transform: translateY(-50%);
+        background: rgba(0, 0, 0, 0.05);
+      }
+    }
+    
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+  }
+  
+  .native-date-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+  }
+  
+  .input-wrapper {
+    position: relative;
+    width: 100%;
   }
   
   .edit-container {
@@ -429,6 +703,10 @@ export default {
     background-color: white;
     font-family: inherit;
     font-size: inherit;
+    
+    &.has-date-picker {
+      padding-right: 32px;
+    }
     
     &:focus {
       border-color: #4a90e2;

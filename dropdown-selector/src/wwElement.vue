@@ -495,11 +495,12 @@ export default {
 <style lang="scss" scoped>
 .dropdown-container {
   position: relative;
-  display: inline-block;
+  display: block;
+  max-width: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   .dropdown-trigger {
-    display: inline-flex;
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
@@ -510,6 +511,8 @@ export default {
     cursor: pointer;
     transition: all 0.2s ease;
     border: 1px solid;
+    max-width: 100%;
+    min-width: 0;
 
     &:focus-visible {
       outline: none;
@@ -733,6 +736,8 @@ export default {
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      min-width: 0;
+      flex-shrink: 1;
       
       &.has-label-click {
         cursor: pointer;

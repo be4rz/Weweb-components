@@ -126,6 +126,24 @@ export default {
       }
       /* wwEditor:end */
     },
+    required: {
+      label: {
+        en: 'Required'
+      },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'A boolean that defines whether the field is required'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled, empty values will be considered invalid'
+      }
+      /* wwEditor:end */
+    },
     validatePattern: {
       label: {
         en: 'Validate pattern'
@@ -177,6 +195,146 @@ export default {
       },
       propertyHelp: {
         tooltip: 'Custom error message to display when validation fails (default: "無効な入力")'
+      }
+      /* wwEditor:end */
+    },
+    noWrap: {
+      label: {
+        en: 'No wrap'
+      },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'A boolean that prevents the text from wrapping to a new line'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled, the display text will not wrap and will stay on a single line'
+      }
+      /* wwEditor:end */
+    },
+    ellipsis: {
+      label: {
+        en: 'Ellipsis'
+      },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      hidden: (content) => !content.noWrap,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'A boolean that truncates overflowing text with an ellipsis (…)'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled (requires No wrap), overflowing text is truncated with "…"'
+      }
+      /* wwEditor:end */
+    },
+    useDatePicker: {
+      label: {
+        en: 'Use date picker'
+      },
+      type: 'OnOff',
+      bindable: true,
+      section: 'settings',
+      defaultValue: false,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'boolean',
+        tooltip: 'A boolean that enables the date picker functionality'
+      },
+      propertyHelp: {
+        tooltip: 'When enabled, shows a calendar icon that opens a date picker to select dates'
+      }
+      /* wwEditor:end */
+    },
+    dateFormat: {
+      label: {
+        en: 'Date format'
+      },
+      type: 'TextSelect',
+      bindable: true,
+      section: 'settings',
+      defaultValue: 'yyyy-MM-dd',
+      options: {
+        options: [
+          { value: 'yyyy-MM-dd', label: 'yyyy-MM-dd (2024-01-15)' },
+          { value: 'dd/MM/yyyy', label: 'dd/MM/yyyy (15/01/2024)' },
+          { value: 'MM/dd/yyyy', label: 'MM/dd/yyyy (01/15/2024)' },
+          { value: 'yyyy/MM/dd', label: 'yyyy/MM/dd (2024/01/15)' },
+          { value: 'dd-MM-yyyy', label: 'dd-MM-yyyy (15-01-2024)' }
+        ]
+      },
+      hidden: (content) => !content.useDatePicker,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'A string that defines the date format (e.g., "yyyy-MM-dd")'
+      },
+      propertyHelp: {
+        tooltip: 'Format for displaying the selected date. Use yyyy for year, MM for month, dd for day.'
+      }
+      /* wwEditor:end */
+    },
+    minDate: {
+      label: {
+        en: 'Min date'
+      },
+      type: 'Text',
+      bindable: true,
+      section: 'settings',
+      defaultValue: '',
+      hidden: (content) => !content.useDatePicker,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'A date string in yyyy-MM-dd format for the minimum selectable date'
+      },
+      propertyHelp: {
+        tooltip: 'Minimum date that can be selected (format: yyyy-MM-dd). Leave empty for no limit.'
+      }
+      /* wwEditor:end */
+    },
+    maxDate: {
+      label: {
+        en: 'Max date'
+      },
+      type: 'Text',
+      bindable: true,
+      section: 'settings',
+      defaultValue: '',
+      hidden: (content) => !content.useDatePicker,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'A date string in yyyy-MM-dd format for the maximum selectable date'
+      },
+      propertyHelp: {
+        tooltip: 'Maximum date that can be selected (format: yyyy-MM-dd). Leave empty for no limit.'
+      }
+      /* wwEditor:end */
+    },
+    datePickerAriaLabel: {
+      label: {
+        en: 'Date picker aria label'
+      },
+      type: 'Text',
+      bindable: true,
+      section: 'settings',
+      defaultValue: 'Open date picker',
+      hidden: (content) => !content.useDatePicker,
+      /* wwEditor:start */
+      bindingValidation: {
+        type: 'string',
+        tooltip: 'Accessibility label for the date picker trigger button'
+      },
+      propertyHelp: {
+        tooltip: 'Screen reader label for the date picker button'
       }
       /* wwEditor:end */
     },
@@ -446,6 +604,11 @@ export default {
       name: 'initValueChange',
       label: { en: 'On init value change' },
       event: { value: '' }
+    },
+    {
+      name: 'dateSelected',
+      label: { en: 'On date selected' },
+      event: { value: '', date: null }
     }
   ],
   actions: [
